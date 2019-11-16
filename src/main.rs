@@ -43,14 +43,11 @@ fn generate_shoe(num_of_decks: u8) -> Vec<u8> {
 }
 
 fn shuffle_shoe(input_shoe: &Vec<u8>, times:u8) -> Vec<u8> {
-  let mut output_shoe = Vec::new();
-  for i in 0..input_shoe.len() {
-    output_shoe.push(input_shoe[i]);
-  }
-
+  let mut output_shoe = input_shoe.clone();
+  
   for _i in 0..times {
     for j in 0..output_shoe.len() {
-      let k = (rand::random::<f64>() * input_shoe.len() as f64) as usize;
+      let k = (rand::random::<f64>() * output_shoe.len() as f64) as usize;
       let t = output_shoe[k];
       output_shoe[k] = output_shoe[j];
       output_shoe[j] = t;
@@ -73,8 +70,9 @@ struct Game {
   banker_pairs: u8,
   banker_wins: u8,
   ties: Vec<u8>,
-  accuracies: Vec<u8>,
-  triggers: Vec<u8>
+  count: Vec<i16>,
+  triggers: Vec<u8>,
+  accuracies: Vec<i8>
 }
 
 fn generate_stats(input_shoe: &Vec<u8>) -> Vec<Game> {
@@ -88,6 +86,7 @@ fn generate_stats(input_shoe: &Vec<u8>) -> Vec<Game> {
   let mut triggers = vec![0; 10];
   let mut accuracies = vec![0; 10];
   let mut stats: Vec<Game> = Vec::new();
+  let mut count = vec![0; 10];
 
   while at + 3 < input_shoe.len() {
     let mut player = (input_shoe[at] + input_shoe[at + 2]) % 10;
@@ -169,18 +168,15 @@ fn generate_stats(input_shoe: &Vec<u8>) -> Vec<Game> {
       }
     }
 
-    (0..10)
-      .enumerate()
-      .for_each(|(i, _)| {
-          let factor = (input_shoe[0..at].iter().fold(0, |acc, c| acc + COUNTING_FACTORS[i][(c % 10) as usize])) as f32 / (input_shoe.len() - at) as f32 * 52.0;
-          if factor >= TRIGGER_FACTORS[i] as f32 {
-            triggers[i] += 1;
-            if i as u8 == player && player == banker {
-              accuracies[i] += 1;
-            }
-          }
+    for i in 0..10 {
+      count[i] = input_shoe[from..at].iter().fold(count.clone()[i], |acc, c| acc + COUNTING_FACTORS[i][(c % 10) as usize] as i16);
+      if count[i] as f32 / (input_shoe.len() - at) as f32 * 52.0 >= TRIGGER_FACTORS[i] as f32 {
+        triggers[i] += 1;
+        if i as u8 == player && player == banker {
+          accuracies[i] += 1;
         }
-      );
+      }
+    }
 
     stats.push(Game {
       round: round,
@@ -194,6 +190,7 @@ fn generate_stats(input_shoe: &Vec<u8>) -> Vec<Game> {
       banker_pairs: banker_pairs,
       banker_wins: banker_wins,
       ties: ties.clone(),
+      count: count.clone(),
       accuracies: accuracies.clone(),
       triggers: triggers.clone()
     });
@@ -209,7 +206,7 @@ fn main() {
   let mut games:Vec<Vec<Game>> = Vec::new();
   let args: Vec<String> = std::env::args().collect();
   let times = &args[1].parse::<u64>().unwrap();
-  (0..*times).for_each(|_| 
+  (0..*times).for_each(|_|
     games.push(generate_stats(&shuffle_shoe(&generate_shoe(num_of_decks), 2)))
   );
 
