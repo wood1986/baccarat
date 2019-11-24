@@ -1,4 +1,5 @@
 extern crate rand;
+extern crate num;
 
 const COUNTING_FACTORS: [[i8; 10]; 10] = [
   [-3,  2,  2,  2,  2,  1,  1,  0,  1,  1],
@@ -26,6 +27,8 @@ const BANKER_DRAW_RULES: [[bool; 10]; 8] = [
 ];
 
 const TRIGGER_FACTORS: [i8; 10] = [7, 7, 6, 7, 7, 7, 7, 4, 6, 6];
+
+const PAY_TABLE: [u8; 10] = [150, 215, 225, 200, 120, 110, 45, 45, 80, 80];
 
 fn generate_shoe(num_of_decks: u8) -> Vec<u8> {
   let mut shoe = Vec::with_capacity(num_of_decks as usize * 52);
@@ -85,6 +88,7 @@ fn generate_stats(input_shoe: &Vec<u8>) -> Vec<Game> {
   let mut accuracies = vec![0; 10];
   let mut stats: Vec<Game> = Vec::with_capacity(input_shoe.len() >> 2);
   let mut count = vec![0; 10];
+  let mut pays = vec![vec![0; input_shoe.len() >> 2]; 10];
 
   while at + 3 < input_shoe.len() {
     let mut player = (input_shoe[at] + input_shoe[at + 2]) % 10;
@@ -167,6 +171,14 @@ fn generate_stats(input_shoe: &Vec<u8>) -> Vec<Game> {
     }
 
     for i in 0..10 {
+      let mut f = (count[i] as f32 / (input_shoe.len() - from) as f32) * 52.0;
+      f = num::clamp(f, 0.0, 80.0);
+      if i as u8 == player && player == banker {
+        pays[i][f as usize] += PAY_TABLE[player as usize];
+      } else {
+        pays[i][f as usize] -= 1;
+      }
+
       if ((count[i] as f32 / (input_shoe.len() - from) as f32) * 52.0) as i16 >= TRIGGER_FACTORS[i] as i16 {
         triggers[i] += 1;
         if i as u8 == player && player == banker {
@@ -234,20 +246,20 @@ fn main() {
     });
   }).collect();
 
-  println!("card,round,a0,ttc0,a1,ttc1,a2,ttc2,a3,ttc3,a4,ttc4,a5,ttc5,a6,ttc6,a7,ttc7,a8,ttc8,a9,ttc9");
+  println!("card,round,n0,n1,n2,n3,n4,n5,n6,n7,n8,n9");
   simulation.iter().for_each(|s| {
-    println!("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+    println!("{},{},{},{},{},{},{},{},{},{},{},{}",
       s.3, s.2,
-      s.1[0], s.0[0],
-      s.1[1], s.0[1],
-      s.1[2], s.0[2],
-      s.1[3], s.0[3],
-      s.1[4], s.0[4],
-      s.1[5], s.0[5],
-      s.1[6], s.0[6],
-      s.1[7], s.0[7],
-      s.1[8], s.0[8],
-      s.1[9], s.0[9]
+      s.1[0] as i32 * (PAY_TABLE[0] as i32 + 1) - s.0[0] as i32,
+      s.1[1] as i32 * (PAY_TABLE[1] as i32 + 1) - s.0[1] as i32,
+      s.1[2] as i32 * (PAY_TABLE[2] as i32 + 1) - s.0[2] as i32,
+      s.1[3] as i32 * (PAY_TABLE[3] as i32 + 1) - s.0[3] as i32,
+      s.1[4] as i32 * (PAY_TABLE[4] as i32 + 1) - s.0[4] as i32,
+      s.1[5] as i32 * (PAY_TABLE[5] as i32 + 1) - s.0[5] as i32,
+      s.1[6] as i32 * (PAY_TABLE[6] as i32 + 1) - s.0[6] as i32,
+      s.1[7] as i32 * (PAY_TABLE[7] as i32 + 1) - s.0[7] as i32,
+      s.1[8] as i32 * (PAY_TABLE[8] as i32 + 1) - s.0[8] as i32,
+      s.1[9] as i32 * (PAY_TABLE[9] as i32 + 1) - s.0[9] as i32
     )
   })
 }
