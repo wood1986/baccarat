@@ -66,11 +66,11 @@ struct Game {
   banker_hand: Vec<u8>,
   banker_pairs: u8,
   banker_wins: u8,
-  pays: Vec<Vec<i16>>,
+  pays: Vec<Vec<i64>>,
   ties: Vec<u8>,
   count: Vec<i16>,
-  triggers: Vec<u8>,
-  accuracies: Vec<i8>
+  // triggers: Vec<u8>,
+  // accuracies: Vec<i8>
 }
 
 fn generate_stats(input_shoe: &Vec<u8>) -> Vec<Game> {
@@ -81,11 +81,11 @@ fn generate_stats(input_shoe: &Vec<u8>) -> Vec<Game> {
   let mut player_pairs = 0;
   let mut banker_pairs = 0;
   let mut ties = vec![0; 10];
-  let mut triggers = vec![0; 10];
-  let mut accuracies = vec![0; 10];
+  // let mut triggers = vec![0; 10];
+  // let mut accuracies = vec![0; 10];
   let mut stats: Vec<Game> = Vec::with_capacity(input_shoe.len() >> 2);
   let mut count = vec![0; 10];
-  let mut pays = vec![vec![0; input_shoe.len() >> 2]; 10];
+  let mut pays = vec![vec![0 as i64; input_shoe.len() >> 2]; 10];
 
   while at + 3 < input_shoe.len() {
     let mut player = (input_shoe[at] + input_shoe[at + 2]) % 10;
@@ -171,17 +171,17 @@ fn generate_stats(input_shoe: &Vec<u8>) -> Vec<Game> {
       let mut f = (count[i] as f32 / (input_shoe.len() - from) as f32) * 52.0;
       f = num::clamp(f, 0.0, 80.0);
       if i as u8 == player && player == banker {
-        pays[i][f as usize] += PAY_TABLE[player as usize] as i16;
+        pays[i][f as usize] += PAY_TABLE[player as usize] as i64;
       } else {
         pays[i][f as usize] -= 1;
       }
 
-      if ((count[i] as f32 / (input_shoe.len() - from) as f32) * 52.0) as i16 >= TRIGGER_FACTORS[i] as i16 {
-        triggers[i] += 1;
-        if i as u8 == player && player == banker {
-          accuracies[i] += 1;
-        }
-      }
+      // if ((count[i] as f32 / (input_shoe.len() - from) as f32) * 52.0) as i16 >= TRIGGER_FACTORS[i] as i16 {
+      //   triggers[i] += 1;
+      //   if i as u8 == player && player == banker {
+      //     accuracies[i] += 1;
+      //   }
+      // }
     }
 
     stats.push(Game {
@@ -198,8 +198,8 @@ fn generate_stats(input_shoe: &Vec<u8>) -> Vec<Game> {
       banker_wins: banker_wins,
       ties: ties.clone(),
       count: count.clone(),
-      accuracies: accuracies.clone(),
-      triggers: triggers.clone()
+      // accuracies: accuracies.clone(),
+      // triggers: triggers.clone()
     });
 
     round += 1;
@@ -211,9 +211,36 @@ fn generate_stats(input_shoe: &Vec<u8>) -> Vec<Game> {
   return stats;
 }
 
-fn compute_trigger_true_count(games: Vec<Vec<Game>>, cut: u8) -> Vec<u8> {
+fn calcutate_win(num_of_decks: usize, games: &Vec<Vec<Game>>, num_of_games_per_group: usize) -> Vec<Vec<Vec<Vec<i64>>>> {
+  let num_of_rounds = (num_of_decks * 52) >> 2;
+
+  return games
+    .chunks(games.len() / num_of_games_per_group)
+    .into_iter()
+    .map(|games| {
+      return (0..(num_of_decks * 52) as u16).map(|i| {
+        return games.iter().fold(vec![vec![0 as i64; num_of_rounds]; 10], |mut pays, game| {
+          let round = game.binary_search_by(|probe| {
+            if probe.index > i {
+              return std::cmp::Ordering::Greater;
+            }
+            return std::cmp::Ordering::Less;
+          }).unwrap_or_else(|x| x);
+    
+          (0..10).for_each(|j| {
+            (0..num_of_rounds).for_each(|k| {
+              pays[j][k] = pays[j][k] + game[round].pays[j][k];
+            });
+          });
+    
+          return pays;
+        });
+      }).collect()
+    }).collect();
+}
+
+fn get_trigger_true_count(gain: &Vec<Vec<Vec<i64>>>) {
   
-  return vec![0; 10];
 }
 
 const TRIGGER_FACTORS: [i8; 10] = [7, 7, 6, 7, 7, 7, 7, 4, 6, 6];
@@ -224,13 +251,15 @@ fn main() {
   let num_of_decks = 8;
   let args: Vec<String> = std::env::args().collect();
   let times = &args[1].parse::<u64>().unwrap();
-  let mut games:Vec<Vec<Game>> = Vec::with_capacity(*times as usize);
+  let mut games: Vec<Vec<Game>> = Vec::with_capacity(*times as usize);
   let mut shoe = shuffle_shoe(&generate_shoe(num_of_decks), 1);
 
   for _ in 0..*times {
     shoe = shuffle_shoe(&shoe, 1);
     games.push(generate_stats(&shoe));
   }
+
+  get_trigger_true_count(&calcutate_win(num_of_decks as usize, &games, games.len())[0]);
 
   println!("{:?}", games);
 
